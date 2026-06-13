@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Discipline Tracker</title>
+<style>
+:root{
+  --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a24;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#f0eff5;--text2:#8b8a99;--text3:#55546a;
+  --green:#22c87a;--gdim:rgba(34,200,122,0.12);
+  --amber:#f5a623;--adim:rgba(245,166,35,0.12);
+  --purple:#9b87f5;--pdim:rgba(155,135,245,0.13);
+  --coral:#ff6b6b;--cdim:rgba(255,107,107,0.1);
+  --locked:#1e1a2a;--r:12px;--rsm:8px;--rpill:999px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;}
+body{padding-bottom:80px;}
+
+.bnav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border2);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom);}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;cursor:pointer;border:none;background:transparent;color:var(--text3);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;gap:4px;transition:color .15s;}
+.bnav-btn .bico{font-size:18px;}
+.bnav-btn.on{color:var(--green);}
+
+.hdr{padding:1.25rem 1.25rem 0.75rem;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:20;}
+.hdr-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;}
+.hdr-date{font-size:20px;font-weight:700;letter-spacing:-0.4px;}
+.hdr-sub{font-size:12px;color:var(--text2);margin-top:3px;}
+.live-clock{font-size:13px;font-weight:700;color:var(--green);background:var(--gdim);padding:4px 10px;border-radius:var(--rpill);border:1px solid rgba(34,200,122,0.2);letter-spacing:0.5px;}
+.hdr-row2{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.65rem;}
+.hdr-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:var(--rpill);}
+.day-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none;}
+.day-nav::-webkit-scrollbar{display:none;}
+.dnbtn{flex-shrink:0;font-size:12px;font-weight:600;padding:5px 13px;border-radius:var(--rpill);border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;transition:all .15s;}
+.dnbtn:hover{color:var(--text);border-color:var(--green);}
+.dnbtn.active{background:var(--green);border-color:var(--green);color:#000;}
+.dnbtn.rest-btn{background:var(--pdim);border-color:rgba(155,135,245,0.3);color:var(--purple);}
+.dnbtn.rest-btn.active{background:var(--purple);border-color:var(--purple);color:#fff;}
+
+.page{display:none;padding:1rem 1.25rem;max-width:520px;margin:0 auto;}
+.page.on{display:block;}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:.9rem;}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 6px;text-align:center;}
+.stat-v{font-size:18px;font-weight:700;}
+.stat-l{font-size:9px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.4px;}
+
+.wtog{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:10px;}
+.wtog-info{flex:1;}.wtog-t{font-size:13px;font-weight:600;}.wtog-s{font-size:11px;color:var(--text2);margin-top:2px;}
+.sw{position:relative;width:42px;height:24px;flex-shrink:0;}
+.sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw-tr{position:absolute;inset:0;background:var(--bg3);border-radius:12px;border:1px solid var(--border2);cursor:pointer;transition:background .2s;}
+.sw input:checked+.sw-tr{background:var(--green);border-color:var(--green);}
+.sw-th{position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;pointer-events:none;transition:transform .2s;}
+.sw input:checked~.sw-th{transform:translateX(18px);}
+
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+.sec-hd{display:flex;align-items:center;gap:8px;padding:11px 14px 9px;border-bottom:1px solid var(--border);}
+.sec-ico{font-size:14px;line-height:1;}
+.sec-title{font-size:12px;font-weight:700;flex:1;text-transform:uppercase;letter-spacing:.4px;}
+.sec-time{font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:var(--rpill);border:1px solid var(--border);}
+
+/* HABIT STATES */
+.hab{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-user-select:none;user-select:none;transition:background .1s;}
+.hab:last-child{border-bottom:none;}
+.hab:active{background:rgba(255,255,255,0.03);}
+.hab-box{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.hab-box.on{background:var(--green);border-color:var(--green);}
+.hab-box.on::after{content:'';display:block;width:12px;height:9px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 9'%3E%3Cpath d='M1 4.5L4.5 8L11 1' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E") center/contain no-repeat;}
+.hab-body{flex:1;min-width:0;}
+.hab-name{font-size:13px;line-height:1.35;}
+.hab-name.on{color:var(--text3);text-decoration:line-through;}
+.hab-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.hab-win{font-size:10px;color:var(--green);font-weight:600;margin-top:2px;}
+.hab-sk{font-size:11px;color:var(--text3);white-space:nowrap;}
+.hab-sk.fire{color:var(--amber);}
+
+.hab-upcoming{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--border);opacity:.55;cursor:not-allowed;}
+.hab-upcoming:last-child{border-bottom:none;}
+.upcoming-box{width:22px;height:22px;border-radius:6px;border:1.5px dashed var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;}
+.upcoming-body{flex:1;min-width:0;}
+.upcoming-name{font-size:13px;color:var(--text3);}
+.upcoming-time{font-size:10px;color:var(--text3);margin-top:2px;}
+.upcoming-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:var(--rpill);background:var(--bg3);color:var(--text3);white-space:nowrap;flex-shrink:0;border:1px solid var(--border2);}
+
+.hab-missed{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:not-allowed;background:rgba(255,107,107,0.03);}
+.hab-missed:last-child{border-bottom:none;}
+.missed-box{width:22px;height:22px;border-radius:6px;border:1.5px solid rgba(255,107,107,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:var(--coral);}
+.missed-name{font-size:13px;color:var(--text3);text-decoration:line-through;flex:1;}
+.missed-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:var(--rpill);background:var(--cdim);color:var(--coral);white-space:nowrap;flex-shrink:0;}
+
+.open-banner{background:var(--gdim);border:1px solid rgba(34,200,122,0.2);border-radius:var(--rsm);padding:7px 12px;font-size:11px;color:var(--green);font-weight:600;text-align:center;margin-bottom:10px;}
+.past-note{font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;}
+
+.course-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.c-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.c-eye{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
+.c-num{font-size:10px;color:var(--text3);}
+.c-name{font-size:14px;font-weight:700;margin-bottom:10px;line-height:1.3;}
+.prow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.pbar{flex:1;height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.pfill{height:100%;border-radius:4px;transition:width .4s;}
+.ppct{font-size:12px;font-weight:700;min-width:32px;text-align:right;}
+.hrow{display:flex;align-items:center;gap:8px;}
+.hlbl{font-size:12px;color:var(--text2);flex:1;}
+.hbtn{width:30px;height:30px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.hbtn:hover{border-color:var(--green);color:var(--green);}
+.hval{font-size:13px;font-weight:700;min-width:60px;text-align:center;}
+
+/* ANALYTICS */
+.an-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.an-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;}
+.big-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.bstat{background:var(--bg3);border-radius:var(--rsm);padding:12px 8px;text-align:center;}
+.bstat-v{font-size:22px;font-weight:700;}
+.bstat-l{font-size:10px;color:var(--text2);margin-top:3px;line-height:1.3;}
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:100px;margin-bottom:8px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.bar-fill{width:100%;border-radius:4px;min-height:2px;}
+.bar-lbl{font-size:9px;color:var(--text3);font-weight:600;text-align:center;}
+.bar-val{font-size:8px;font-weight:700;}
+.heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px;}
+.hm-cell{aspect-ratio:1;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:8px;font-weight:700;border:1px solid var(--border);}
+.hm-d{font-size:8px;}.hm-p{font-size:8px;font-weight:700;}
+.hm-0{background:var(--bg3);color:var(--text3);}
+.hm-1{background:rgba(34,200,122,0.12);border-color:rgba(34,200,122,0.2);color:#1D9E75;}
+.hm-2{background:rgba(34,200,122,0.25);border-color:rgba(34,200,122,0.35);color:var(--green);}
+.hm-3{background:rgba(34,200,122,0.45);border-color:rgba(34,200,122,0.55);color:#fff;}
+.hm-rest{background:var(--pdim);border-color:rgba(155,135,245,0.2);color:var(--purple);}
+.hm-future{background:transparent;border:1px dashed var(--border);color:var(--text3);opacity:.3;}
+.hm-month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.hm-month-lbl{font-size:14px;font-weight:700;}
+.hm-nav-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rsm);color:var(--text2);cursor:pointer;padding:4px 10px;font-size:13px;transition:all .15s;}
+.hm-nav-btn:hover{color:var(--text);border-color:var(--green);}
+.hm-day-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;}
+.hm-day-lbl{text-align:center;font-size:9px;color:var(--text3);font-weight:600;}
+.hr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.hr-row:last-child{border-bottom:none;}
+.hr-rank{font-size:11px;font-weight:700;color:var(--text3);width:18px;text-align:center;}
+.hr-name{font-size:12px;flex:1;}
+.hr-bar-wrap{width:70px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.hr-bar-fill{height:100%;border-radius:3px;}
+.hr-pct{font-size:11px;font-weight:700;min-width:30px;text-align:right;}
+.ac-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.ac-row:last-child{border-bottom:none;}
+.ac-num{font-size:10px;font-weight:700;color:var(--text3);width:16px;}
+.ac-body{flex:1;min-width:0;}
+.ac-name{font-size:12px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ac-pbar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.ac-pfill{height:100%;border-radius:2px;}
+.ac-pct{font-size:11px;font-weight:700;min-width:30px;text-align:right;}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:var(--rpill);}
+.tag-g{background:var(--gdim);color:var(--green);}
+.tag-a{background:var(--adim);color:var(--amber);}
+.tag-r{background:var(--cdim);color:var(--coral);}
+.leg-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);}
+.legdot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+
+.rest-banner{background:var(--pdim);border:1px solid rgba(155,135,245,.25);border-radius:var(--r);padding:1.75rem 1.25rem;margin-bottom:10px;text-align:center;}
+.rest-ico{font-size:40px;margin-bottom:10px;}
+.rest-title{font-size:20px;font-weight:700;color:var(--purple);margin-bottom:6px;}
+.rest-sub{font-size:13px;color:var(--text2);line-height:1.6;}
+.quote{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.qt{font-size:13px;color:var(--text2);font-style:italic;line-height:1.65;}
+.qa{font-size:11px;color:var(--text3);margin-top:6px;}
+.reset-btn{width:100%;padding:11px;border:1px solid var(--border2);border-radius:var(--rsm);background:transparent;color:var(--text3);font-size:12px;cursor:pointer;transition:all .15s;margin-top:4px;}
+.reset-btn:hover{color:var(--coral);border-color:var(--coral);}
+
+.toast{position:fixed;top:76px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 18px;font-size:13px;font-weight:500;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;max-width:90vw;text-align:center;}
+.toast.show{opacity:1;}
+.toast.ok{border-color:rgba(34,200,122,.4);color:var(--green);}
+.toast.warn{border-color:rgba(245,166,35,.4);color:var(--amber);}
+.toast.err{border-color:rgba(255,107,107,.4);color:var(--coral);}
+
+@media(max-width:380px){.stats{grid-template-columns:repeat(2,1fr);}.hdr-date{font-size:17px;}.page{padding:.85rem 1rem;}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-top">
+    <div><div class="hdr-date" id="hdate"></div><div class="hdr-sub" id="hsub"></div></div>
+    <span class="live-clock" id="lclock"></span>
+  </div>
+  <div class="hdr-row2">
+    <span class="hdr-badge" id="hbadge"></span>
+    <span id="day-type" style="font-size:11px;color:var(--text3)"></span>
+  </div>
+  <div class="day-nav" id="daynav"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div class="page on" id="pg-today"></div>
+<div class="page" id="pg-week"></div>
+<div class="page" id="pg-month"></div>
+
+<nav class="bnav">
+  <button class="bnav-btn on" id="nb-today" onclick="goPage('today')"><span class="bico">✅</span>Today</button>
+  <button class="bnav-btn" id="nb-week" onclick="goPage('week')"><span class="bico">📊</span>Weekly</button>
+  <button class="bnav-btn" id="nb-month" onclick="goPage('month')"><span class="bico">📅</span>Monthly</button>
+</nav>
+
+<script>
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS_L=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_S=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const COURSES=[
+  {name:'Gen AI for Beginners',hrs:4.5,color:'#22c87a',days:6},
+  {name:'AI Engineer Core Track — LLM Engineering, RAG, QLoRA, Agents',hrs:33.5,color:'#60a5fa',days:40},
+  {name:'Multi AI Agent Systems with CrewAI (DeepLearning.AI)',hrs:2.75,color:'#9b87f5',days:4},
+  {name:'AI Engineer Agentic Track — Complete Agent & MCP Course',hrs:17,color:'#f5a623',days:23},
+  {name:'AWS Certified AI Practitioner (AIF-C01)',hrs:10.25,color:'#ff6b6b',days:14},
+];
+
+const COURSE_PLAN=[
+  {day:1,course:1,topic:'What is AI? History of AI and ML fundamentals',section:'Foundations'},
+  {day:2,course:1,topic:'What is Generative AI? How LLMs work — tokens, parameters, inference',section:'Foundations'},
+  {day:3,course:1,topic:'Prompt engineering basics — zero-shot, few-shot, chain-of-thought',section:'Core Concepts'},
+  {day:4,course:1,topic:'Key GenAI tools: ChatGPT, Claude, Gemini — hands-on exploration',section:'Core Concepts'},
+  {day:5,course:1,topic:'GenAI use cases across industries — business, marketing, coding',section:'Applications'},
+  {day:6,course:1,topic:'AI ethics, hallucinations, limitations + course wrap-up',section:'Applications'},
+  {day:7,course:2,topic:'Week 1 D1 — Setup: Python env, Jupyter, OpenAI API keys, Ollama install',section:'Week 1: Setup'},
+  {day:8,course:2,topic:'Week 1 D2 — OpenAI API basics: completions, chat, system/user messages',section:'Week 1: Setup'},
+  {day:9,course:2,topic:'Week 1 D3 — Build AI brochure generator: web scraping + LLM decisions',section:'Week 1: Project 1'},
+  {day:10,course:2,topic:'Week 1 D4 — Hugging Face intro: models, tokenizers, pipeline API',section:'Week 1: Project 1'},
+  {day:11,course:2,topic:'Week 1 D5 — Run open-source models locally with Ollama: Llama, Mistral',section:'Week 1: Project 1'},
+  {day:12,course:2,topic:'Week 2 D1 — Frontier model comparison: GPT-4, Claude, Gemini APIs',section:'Week 2: APIs & Chatbots'},
+  {day:13,course:2,topic:'Week 2 D2 — Multimodal inputs: text + image + audio to LLMs',section:'Week 2: APIs & Chatbots'},
+  {day:14,course:2,topic:'Week 2 D3 — Build customer support chatbot with Gradio UI',section:'Week 2: Project 2'},
+  {day:15,course:2,topic:'Week 2 D4 — Function calling and tool use in LLMs',section:'Week 2: Project 2'},
+  {day:16,course:2,topic:'Week 2 D5 — Add agents to chatbot: flight search, booking tools',section:'Week 2: Project 2'},
+  {day:17,course:2,topic:'Week 3 D1 — Tokenization deep dive: BPE, vocab, special tokens',section:'Week 3: Open Source & Audio'},
+  {day:18,course:2,topic:'Week 3 D2 — Whisper for speech-to-text: transcription pipeline',section:'Week 3: Open Source & Audio'},
+  {day:19,course:2,topic:'Week 3 D3 — Build meeting minutes tool: audio to transcript to action items',section:'Week 3: Project 3'},
+  {day:20,course:2,topic:'Week 3 D4 — Text-to-speech models: local vs cloud comparison',section:'Week 3: Project 3'},
+  {day:21,course:2,topic:'Week 3 D5 — Code generation with LLMs: Python to C++ optimizer setup',section:'Week 3: Project 3'},
+  {day:22,course:2,topic:'Week 4 D1 — LLM evaluation: benchmarks, human eval, automated scoring',section:'Week 4: Evaluation'},
+  {day:23,course:2,topic:'Week 4 D2 — Weights & Biases: experiment tracking, model logging',section:'Week 4: Evaluation'},
+  {day:24,course:2,topic:'Week 4 D3 — Build Python to C++ optimizer: 60,000x speed improvement',section:'Week 4: Project 4'},
+  {day:25,course:2,topic:'Week 4 D4 — LLM showdown: evaluating models for code gen tasks',section:'Week 4: Project 4'},
+  {day:26,course:2,topic:'Week 4 D5 — Advanced Weights & Biases: sweeps, artifacts, model saving',section:'Week 4: Project 4'},
+  {day:27,course:2,topic:'Week 5 D1 — What is RAG? Vector databases, embeddings theory',section:'Week 5: RAG'},
+  {day:28,course:2,topic:'Week 5 D2 — Vector embeddings in practice: similarity search, FAISS',section:'Week 5: RAG'},
+  {day:29,course:2,topic:'Week 5 D3 — LangChain for RAG: document loaders, text splitters',section:'Week 5: Project 5'},
+  {day:30,course:2,topic:'Week 5 D4 — Build AI knowledge worker: company Q&A over documents',section:'Week 5: Project 5'},
+  {day:31,course:2,topic:'Week 5 D5 — Advanced RAG: re-ranking, hybrid search, vector visualization',section:'Week 5: Project 5'},
+  {day:32,course:2,topic:'Week 6 D1 — Fine-tuning theory: when and why to fine-tune vs RAG',section:'Week 6: Fine-tuning'},
+  {day:33,course:2,topic:'Week 6 D2 — LoRA explained: low-rank adaptation, adapter layers',section:'Week 6: Fine-tuning'},
+  {day:34,course:2,topic:'Week 6 D3 — QLoRA: quantization + LoRA for consumer hardware training',section:'Week 6: Fine-tuning'},
+  {day:35,course:2,topic:'Week 6 D4 — Training pipeline: data prep to training to saving on HuggingFace',section:'Week 6: Fine-tuning'},
+  {day:36,course:2,topic:'Week 6 D5 — Run fine-tuned model: forward pass, backward pass, loss calculation',section:'Week 6: Fine-tuning'},
+  {day:37,course:2,topic:'Week 7 D1 — Capstone setup: product price prediction problem definition',section:'Week 7: Capstone A'},
+  {day:38,course:2,topic:'Week 7 D2 — Data collection and cleaning: e-commerce product datasets',section:'Week 7: Capstone A'},
+  {day:39,course:2,topic:'Week 7 D3 — Frontier model baseline: GPT-4o for price prediction',section:'Week 7: Capstone A'},
+  {day:40,course:2,topic:'Week 7 D4 — Prompt engineering for structured output: price + reasoning',section:'Week 7: Capstone A'},
+  {day:41,course:2,topic:'Week 7 D5 — Evaluate: frontier vs traditional ML baseline comparison',section:'Week 7: Capstone A'},
+  {day:42,course:2,topic:'Week 8 D1 — Fine-tune open-source model on price prediction dataset',section:'Week 8: Capstone B'},
+  {day:43,course:2,topic:'Week 8 D2 — Deploy fine-tuned model to Modal.com cloud inference',section:'Week 8: Capstone B'},
+  {day:44,course:2,topic:'Week 8 D3 — Build autonomous multi-agent deal-finder system',section:'Week 8: Capstone B'},
+  {day:45,course:2,topic:'Week 8 D4 — Agent collaboration: scanning, comparing, notifying on deals',section:'Week 8: Capstone B'},
+  {day:46,course:2,topic:'Week 8 D5 — Course review: LLM engineering career roadmap and next steps',section:'Week 8: Capstone B'},
+  {day:47,course:3,topic:'Lesson 1-2 — AI agent fundamentals, crewAI setup, role-playing agents',section:'Introduction & Roles'},
+  {day:48,course:3,topic:'Lesson 3-4 — Memory types: short-term, long-term, shared. Tools for agents',section:'Memory & Tools'},
+  {day:49,course:3,topic:'Lesson 5-6 — Guardrails, hallucination handling. Resume tailoring crew (project)',section:'Guardrails & Projects'},
+  {day:50,course:3,topic:'Lesson 7-8 — Hierarchical crews, parallel execution. Financial analysis crew (capstone)',section:'Collaboration & Capstone'},
+  {day:51,course:4,topic:'Week 1 D1 — Agentic AI overview: reactive vs autonomous agents, course map',section:'Week 1: Foundations'},
+  {day:52,course:4,topic:'Week 1 D2 — LLM design patterns: reflection, tool use, planning, multi-agent',section:'Week 1: Foundations'},
+  {day:53,course:4,topic:'Week 1 D3 — Build Career Digital Twin: agent representing you to employers',section:'Week 1: Project 1'},
+  {day:54,course:4,topic:'Week 1 D4 — Deploy and test Career Digital Twin with Gradio UI',section:'Week 1: Project 1'},
+  {day:55,course:4,topic:'Week 2 D1 — OpenAI Agents SDK: runners, handoffs, structured outputs',section:'Week 2: OpenAI SDK'},
+  {day:56,course:4,topic:'Week 2 D2 — Build SDR Sales Agent: email crafting and sending automation',section:'Week 2: Project 2'},
+  {day:57,course:4,topic:'Week 2 D3 — Build Deep Research Agent: multi-agent research team',section:'Week 2: Project 3'},
+  {day:58,course:4,topic:'Week 2 D4 — Guardrails in OpenAI SDK: input/output validation, error handling',section:'Week 2: Project 3'},
+  {day:59,course:4,topic:'Week 3 D1 — CrewAI deep dive: crews, tasks, agents, YAML configuration',section:'Week 3: CrewAI'},
+  {day:60,course:4,topic:'Week 3 D2 — Build Stock Picker Agent: financial research automation',section:'Week 3: Project 4'},
+  {day:61,course:4,topic:'Week 3 D3 — Build 4-Agent Engineering Team: PM, developer, tester, reviewer',section:'Week 3: Project 5'},
+  {day:62,course:4,topic:'Week 3 D4 — CrewAI flows: complex multi-crew coordination strategies',section:'Week 3: Project 5'},
+  {day:63,course:4,topic:'Week 4 D1 — LangGraph: state machines, nodes, edges, conditional flows',section:'Week 4: LangGraph'},
+  {day:64,course:4,topic:'Week 4 D2 — Build Operator/Sidekick: browser-based agent with LangGraph',section:'Week 4: Project 6'},
+  {day:65,course:4,topic:'Week 4 D3 — LangGraph advanced: persistence, checkpointing, human-in-the-loop',section:'Week 4: Project 6'},
+  {day:66,course:4,topic:'Week 5 D1 — AutoGen: multi-agent conversations, remote collaboration patterns',section:'Week 5: AutoGen'},
+  {day:67,course:4,topic:'Week 5 D2 — Build collaborative AutoGen system: agent-to-agent delegation',section:'Week 5: Project 7'},
+  {day:68,course:4,topic:'Week 5 D3 — Framework comparison: when to use SDK vs CrewAI vs LangGraph',section:'Week 5: Project 7'},
+  {day:69,course:4,topic:'Week 6 D1 — MCP (Model Context Protocol): what it is, why it matters',section:'Week 6: MCP Capstone'},
+  {day:70,course:4,topic:'Week 6 D2 — MCP servers: tools, resources, prompts — build your first server',section:'Week 6: MCP Capstone'},
+  {day:71,course:4,topic:'Week 6 D3 — Capstone: Trading Floor with 4 agents, 6 MCP servers, 44 tools',section:'Week 6: MCP Capstone'},
+  {day:72,course:4,topic:'Week 6 D4 — Deploy Trading Floor: autonomous trade decisions end-to-end',section:'Week 6: MCP Capstone'},
+  {day:73,course:4,topic:'Week 6 D5 — Portfolio prep: document all 8 projects for job applications',section:'Week 6: MCP Capstone'},
+  {day:74,course:5,topic:'Domain 1 — AI/ML fundamentals: supervised, unsupervised, reinforcement learning',section:'Domain 1: AI & ML Basics'},
+  {day:75,course:5,topic:'Domain 1 — Neural networks, deep learning, model training lifecycle',section:'Domain 1: AI & ML Basics'},
+  {day:76,course:5,topic:'Domain 1 — Model evaluation: accuracy, precision, recall, F1, confusion matrix',section:'Domain 1: AI & ML Basics'},
+  {day:77,course:5,topic:'Domain 2 — Amazon Bedrock and foundation models overview on AWS',section:'Domain 2: GenAI on AWS'},
+  {day:78,course:5,topic:'Domain 2 — Prompt engineering on Bedrock: RAG patterns, Knowledge Bases',section:'Domain 2: GenAI on AWS'},
+  {day:79,course:5,topic:'Domain 2 — Bedrock Agents + Guardrails: hands-on demo in AWS console',section:'Domain 2: GenAI on AWS'},
+  {day:80,course:5,topic:'Domain 2 — Amazon Q Business and Q Developer: enterprise AI assistants',section:'Domain 2: GenAI on AWS'},
+  {day:81,course:5,topic:'Domain 3 — SageMaker: training, tuning, and deploying ML models on AWS',section:'Domain 3: AWS ML Services'},
+  {day:82,course:5,topic:'Domain 3 — AWS AI services: Comprehend, Transcribe, Polly, Lex, Rekognition',section:'Domain 3: AWS ML Services'},
+  {day:83,course:5,topic:'Domain 3 — Textract + Rekognition hands-on: document and image AI demos',section:'Domain 3: AWS ML Services'},
+  {day:84,course:5,topic:'Domain 4 — Responsible AI: bias, fairness, explainability, model cards on AWS',section:'Domain 4: Responsible AI'},
+  {day:85,course:5,topic:'Domain 4 — Security for AI on AWS: IAM, VPC, encryption best practices',section:'Domain 4: Responsible AI'},
+  {day:86,course:5,topic:'Domain 5 — Practice test 1: 65 questions timed + review all wrong answers',section:'Domain 5: Exam Prep'},
+  {day:87,course:5,topic:'Domain 5 — Practice test 2: 65 questions timed + final revision all domains',section:'Domain 5: Exam Prep'},
+];
+
+const QUOTES=[
+  {t:'"Discipline is choosing between what you want now and what you want most."',a:'Abraham Lincoln'},
+  {t:'"Small daily improvements are the key to staggering long-term results."',a:'Unknown'},
+  {t:'"You don\'t rise to the level of your goals. You fall to the level of your systems."',a:'James Clear'},
+  {t:'"The secret of getting ahead is getting started."',a:'Mark Twain'},
+  {t:'"It\'s not about having time. It\'s about making time."',a:'Unknown'},
+  {t:'"Success is the sum of small efforts repeated day in and day out."',a:'Robert Collier'},
+  {t:'"Tough times never last, but tough people do."',a:'Robert H. Schuller'},
+];
+
+/* ─── TIME WINDOWS [startH, startM, endH, endM, overnight?] ─── */
+const WIN={
+  'sleep-bed':    [23, 0,  0,30, true],
+  'wake-4':       [ 3,45,  4,30,false],
+  'jobs-4':       [ 4, 0,  5,30,false],
+  'sleep-2nd':    [ 5, 0,  6,30,false],
+  'prayers':      [ 6, 0,  7, 0,false],
+  'breakfast':    [ 6,30,  7,30,false],
+  'study':        [ 7, 0,  8,15,false],
+  'linkedin':     [ 8, 0,  9,30,false],
+  'meeting':      [ 9, 0, 16,30,false],
+  'meal-prep':    [17, 0, 19, 0,false],   // Non-work days: 5–7 PM
+  'laptop-close': [21,45, 22, 0,false],   // 9:45 PM – 10:00 PM sharp, no buffer
+  'work-shift':   [23,30,  0,30, true],
+  // Saturday
+  'sat-wake':     [ 6,50,  7,30,false],
+  'sat-bath':     [ 7, 0,  8, 0,false],
+  'sat-prayers':  [ 7,15,  8,15,false],
+  'sat-breakfast':[ 8, 0,  9,30,false],
+  'sat-call':     [ 9, 0, 10,30,false],
+  'sat-temple':   [ 9, 0, 11,30,false],
+  'sat-study':    [11, 0, 12,30,false],
+  'sat-revision': [12, 0, 15, 0,false],
+  'sat-meal':     [13, 0, 17, 0,false],
+  'sat-laptop':   [21,45, 22, 0,false],   // 9:45 PM – 10:00 PM sharp, no buffer
+  // Sunday
+  'sun-wake':     [ 6,50,  7,30,false],
+  'sun-revision': [ 7, 0,  8,30,false],
+  'sun-breakfast':[ 8, 0,  9,30,false],
+};
+
+const WIN_LABEL={
+  'sleep-bed':    '11:00 PM – 12:30 AM',
+  'wake-4':       '3:45 AM – 4:30 AM',
+  'jobs-4':       '4:00 AM – 5:30 AM',
+  'sleep-2nd':    '5:00 AM – 6:30 AM',
+  'prayers':      '6:00 AM – 7:00 AM',
+  'breakfast':    '6:30 AM – 7:30 AM',
+  'study':        '7:00 AM – 8:15 AM',
+  'linkedin':     '8:00 AM – 9:30 AM',
+  'meeting':      '9:00 AM – 4:30 PM',
+  'meal-prep':    '5:00 PM – 7:00 PM',
+  'laptop-close': 'By 10:00 PM sharp',
+  'work-shift':   '11:30 PM – 12:30 AM',
+  'sat-wake':     '6:50 AM – 7:30 AM',
+  'sat-bath':     '7:00 AM – 8:00 AM',
+  'sat-prayers':  '7:15 AM – 8:15 AM',
+  'sat-breakfast':'8:00 AM – 9:30 AM',
+  'sat-call':     '9:00 AM – 10:30 AM',
+  'sat-temple':   '9:00 AM – 11:30 AM',
+  'sat-study':    '11:00 AM – 12:30 PM',
+  'sat-revision': '12:00 PM – 3:00 PM',
+  'sat-meal':     '1:00 PM – 5:00 PM',
+  'sat-laptop':   'By 10:00 PM sharp',
+  'sun-wake':     '6:50 AM – 7:30 AM',
+  'sun-revision': '7:00 AM – 8:30 AM',
+  'sun-breakfast':'8:00 AM – 9:30 AM',
+};
+
+/* ─── HABIT DEFINITIONS ─── */
+// WORK DAY habits — no 4-5 PM slot, no evening slot
+const WD_WORK=[
+  {id:'sleep-bed',    name:'In bed on time',                          sub:'By 12:00 AM — work night',           sec:'Early morning'},
+  {id:'wake-4',       name:'Wake up at 4:00 AM',                      sub:'',                                    sec:'Early morning'},
+  {id:'jobs-4',       name:'Job applications — Dice, Monster, LinkedIn',sub:'Resume uploads + apply for roles',   sec:'Early morning'},
+  {id:'sleep-2nd',    name:'Second sleep (5–6 AM)',                    sub:'Biphasic rest',                       sec:'Early morning'},
+  {id:'prayers',      name:'Morning prayers',                          sub:'6:00–6:30 AM',                        sec:'Morning routine'},
+  {id:'breakfast',    name:'Make and eat breakfast',                   sub:'6:30–7:00 AM · fresh every morning',  sec:'Morning routine'},
+  {id:'study',        name:'Course study — 45 min watch + 15 min notes',sub:'7:00–8:00 AM · timestamps → 3 sentences after',sec:'Morning routine'},
+  {id:'linkedin',     name:'LinkedIn posts + job applications',        sub:'8:00–9:00 AM',                        sec:'Morning routine'},
+  {id:'meeting',      name:'Attended monitoring meeting',              sub:'9:00 AM – 4:00 PM',                   sec:'Meeting block'},
+  {id:'work-shift',   name:'Completed work shift',                     sub:'5:00 PM – 12:00 AM · confirm at end', sec:'Work shift'},
+];
+
+// NON-WORK DAY habits — meal prep 5–7 PM, laptop closed 10 PM
+const WD_NOWORK=[
+  {id:'sleep-bed',    name:'In bed on time',                          sub:'By 11:00 PM — off night',             sec:'Early morning'},
+  {id:'wake-4',       name:'Wake up at 4:00 AM',                      sub:'',                                    sec:'Early morning'},
+  {id:'jobs-4',       name:'Job applications — Dice, Monster, LinkedIn',sub:'Resume uploads + apply for roles',   sec:'Early morning'},
+  {id:'sleep-2nd',    name:'Second sleep (5–6 AM)',                    sub:'Biphasic rest',                       sec:'Early morning'},
+  {id:'prayers',      name:'Morning prayers',                          sub:'6:00–6:30 AM',                        sec:'Morning routine'},
+  {id:'breakfast',    name:'Make and eat breakfast',                   sub:'6:30–7:00 AM · fresh every morning',  sec:'Morning routine'},
+  {id:'study',        name:'Course study — 45 min watch + 15 min notes',sub:'7:00–8:00 AM · timestamps → 3 sentences after',sec:'Morning routine'},
+  {id:'linkedin',     name:'LinkedIn posts + job applications',        sub:'8:00–9:00 AM',                        sec:'Morning routine'},
+  {id:'meeting',      name:'Attended monitoring meeting',              sub:'9:00 AM – 4:00 PM',                   sec:'Meeting block'},
+  {id:'meal-prep',    name:'Meal prep for upcoming work days',         sub:'Cook 3 meals ahead so work days stay free',sec:'Evening'},
+  {id:'laptop-close', name:'Laptop closed by 10:00 PM',               sub:'Rest and recharge — protect your sleep',sec:'Evening'},
+];
+
+const SAT=[
+  {id:'sat-wake',     name:'Wake up at 7:00 AM',                      sub:'',                                    sec:'Morning'},
+  {id:'sat-bath',     name:'Bath + freshen up',                        sub:'Ready by 7:30 AM',                    sec:'Morning'},
+  {id:'sat-prayers',  name:'Morning prayers',                          sub:'7:30–8:00 AM',                        sec:'Morning'},
+  {id:'sat-breakfast',name:'Make and eat breakfast',                   sub:'8:00–9:00 AM',                        sec:'Morning'},
+  {id:'sat-call',     name:'Performance call with monitor',            sub:'Optional · 9–10 AM · ~30 min',        sec:'Mid-morning'},
+  {id:'sat-temple',   name:'Visit temple + return home',               sub:'Back by 11:00 AM',                    sec:'Mid-morning'},
+  {id:'sat-study',    name:'Course study — 45 min + 15 min notes',     sub:'11:00 AM – 12:00 PM',                 sec:'Study & revision'},
+  {id:'sat-revision', name:'Weekly revision of all course notes',      sub:'Go through entire week · 1–2 hours',  sec:'Study & revision'},
+  {id:'sat-meal',     name:'Meal prep for upcoming work days',         sub:'Cook ahead so weekdays stay free',     sec:'Study & revision'},
+  {id:'sat-laptop',   name:'Laptop closed by 10:00 PM',               sub:'Rest and recharge for the week ahead', sec:'Evening'},
+];
+
+const SUN=[
+  {id:'sun-wake',     name:'Wake up at 7:00 AM',                      sub:'',                                    sec:'Morning'},
+  {id:'sun-revision', name:'Revision session',                         sub:'7:15–8:15 AM · go through last week\'s notes',sec:'Morning'},
+  {id:'sun-breakfast',name:'Make and eat breakfast',                   sub:'8:15–9:00 AM · then full rest',       sec:'Morning'},
+];
+
+const ALL_HABITS=[...WD_WORK,...WD_NOWORK,...SAT,...SUN].filter((h,i,a)=>a.findIndex(x=>x.id===h.id)===i);
+
+const SEC_ICON={'Early morning':'🌙','Morning routine':'☀️','Morning':'☀️','Meeting block':'📹','Evening':'🌙','Work shift':'💼','Mid-morning':'🛕','Study & revision':'📚'};
+const SEC_TIME={'Early morning':'12 AM–6 AM','Morning routine':'6–9 AM','Morning':'7–9 AM','Meeting block':'9 AM–4 PM','Evening':'5 PM onwards','Work shift':'5 PM–12 AM','Mid-morning':'9–11 AM','Study & revision':'11 AM–eve'};
+
+/* ─── STORAGE ─── */
+const MEM={};
+function sv(k,v){MEM[k]=v;try{localStorage.setItem('dt7_'+k,JSON.stringify(v));}catch(e){}}
+function ld(k,d){if(MEM[k]!==undefined)return MEM[k];try{const r=localStorage.getItem('dt7_'+k);if(r!==null){MEM[k]=JSON.parse(r);return MEM[k];}}catch(e){}MEM[k]=typeof d==='object'&&d!==null?JSON.parse(JSON.stringify(d)):d;return MEM[k];}
+
+/* ─── STATE ─── */
+let viewDay=null,viewMonth=null,currentPage='today';
+function today(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function dow(s){if(!s)return new Date().getDay();const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]).getDay();}
+function view(){return viewDay||today();}
+function vdow(){return dow(view());}
+function isViewingToday(){return view()===today();}
+function isWork(){return ld('iw',false);}
+function getCIdx(){return ld('ci',0);}
+function getCHrs(){return ld('ch2',0);}
+function getChecked(){return ld('ch',{});}
+function getStreaks(){return ld('sk',{});}
+function getWeekData(){return ld('wd',{});}
+function hkey(id){return view()+'__'+id;}
+
+function habits(){
+  const d=vdow();
+  if(d===0) return SUN;
+  if(d===6) return SAT;
+  return isWork() ? WD_WORK : WD_NOWORK;
+}
+function isDone(id){return !!(getChecked())[hkey(id)];}
+function doneCount(){return habits().filter(h=>isDone(h.id)).length;}
+function totalCount(){return habits().length;}
+function pct(){const t=totalCount();return t?Math.round(doneCount()/t*100):0;}
+
+/* ─── TIME WINDOW LOGIC ─── */
+function nowMins(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+function windowStatus(id){
+  if(!isViewingToday()) return 'past';
+  const w=WIN[id];
+  if(!w) return 'open';
+  const [sh,sm,eh,em,overnight]=w;
+  const now=nowMins();
+  const start=sh*60+sm;
+  const end=eh*60+em;
+  if(overnight){
+    if(now>=start||now<=end) return 'open';
+    return now>end&&now<start ? 'upcoming' : 'upcoming';
+  }
+  if(now>=start&&now<=end) return 'open';
+  if(now<start) return 'upcoming';
+  return 'missed';
+}
+function openIn(id){
+  const w=WIN[id];if(!w)return '';
+  const [sh,sm]=w;
+  const now=new Date();
+  const target=new Date(now);
+  target.setHours(sh,sm,0,0);
+  if(target<=now)target.setDate(target.getDate()+1);
+  const diff=Math.round((target-now)/60000);
+  if(diff<60)return `${diff}m`;
+  return `${Math.floor(diff/60)}h${diff%60>0?' '+diff%60+'m':''}`;
+}
+
+/* ─── TOAST ─── */
+let toastT=null;
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show '+type;
+  if(toastT)clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+/* ─── ACTIONS ─── */
+function tap(id){
+  if(!isViewingToday()){toast('Cannot edit past days','err');return;}
+  const st=windowStatus(id);
+  if(st==='upcoming'){
+    toast(`⏳ Opens in ${openIn(id)} · Window: ${WIN_LABEL[id]||''}`, 'warn');return;
+  }
+  if(st==='missed'){
+    toast(`⛔ Window closed · Was: ${WIN_LABEL[id]||''}`, 'err');return;
+  }
+  const ch=getChecked();const sk=getStreaks();
+  ch[hkey(id)]=!ch[hkey(id)];
+  if(ch[hkey(id)]){sk[id]=(sk[id]||0)+1;toast('✓ Marked done!','ok');}
+  else toast('Unmarked','ok');
+  sv('ch',ch);sv('sk',sk);saveWD();render();
+}
+function toggleWork(){sv('iw',document.getElementById('wt').checked);saveWD();render();}
+function adjHrs(d){
+  let h=parseFloat((getCHrs()+d).toFixed(2));if(h<0)h=0;
+  const c=COURSES[Math.min(getCIdx(),COURSES.length-1)];
+  if(h>=c.hrs&&getCIdx()<COURSES.length-1){sv('ci',getCIdx()+1);h=0;}
+  sv('ch2',h);render();
+}
+function resetDay(){
+  if(!confirm('Reset all habits for today?'))return;
+  const ch=getChecked();const k=view()+'__';
+  Object.keys(ch).filter(x=>x.startsWith(k)).forEach(x=>delete ch[x]);
+  sv('ch',ch);saveWD();render();
+}
+function saveWD(){const wd=getWeekData();wd[view()]=pct();sv('wd',wd);}
+function calcStreak(){
+  const wd=getWeekData();const now=new Date();let s=0;
+  for(let i=0;i<365;i++){
+    const d=new Date(now);d.setDate(now.getDate()-i);
+    if(d.getDay()===0)continue;
+    const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    const p=wd[k];
+    if(p===undefined&&i===0)continue;
+    if(p===undefined||p<70)break;
+    s++;
+  }
+  return s;
+}
+
+/* ─── PAGE NAV ─── */
+function goPage(p){
+  currentPage=p;
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.bnav-btn').forEach(el=>el.classList.remove('on'));
+  document.getElementById('pg-'+p).classList.add('on');
+  document.getElementById('nb-'+p).classList.add('on');
+  document.getElementById('daynav').style.display=p==='today'?'flex':'none';
+  render();
+}
+
+/* ─── RENDER HELPERS ─── */
+function secGroups(habs){const m={};habs.forEach(h=>{if(!m[h.sec])m[h.sec]=[];m[h.sec].push(h);});return m;}
+
+function habHTML(h){
+  const done=isDone(h.id);
+  const sk=(getStreaks())[h.id]||0;const hot=sk>=3;
+
+  // Always show done items as checked
+  if(done){
+    return `<div class="hab" onclick="tap('${h.id}')">
+      <div class="hab-box on"></div>
+      <div class="hab-body"><div class="hab-name on">${h.name}</div>${h.sub?`<div class="hab-sub">${h.sub}</div>`:''}</div>
+      <div class="hab-sk${hot?' fire':''}">${sk} ${hot?'🔥':'·'}</div>
+    </div>`;
+  }
+  // Past day not done = missed
+  if(!isViewingToday()){
+    return `<div class="hab-missed">
+      <div class="missed-box">✗</div>
+      <div class="missed-name">${h.name}</div>
+      <div class="missed-badge">Missed</div>
+    </div>`;
+  }
+
+  const st=windowStatus(h.id);
+
+  if(st==='open'){
+    return `<div class="hab" onclick="tap('${h.id}')">
+      <div class="hab-box"></div>
+      <div class="hab-body">
+        <div class="hab-name">${h.name}</div>
+        ${h.sub?`<div class="hab-sub">${h.sub}</div>`:''}
+        ${WIN_LABEL[h.id]?`<div class="hab-win">🟢 Window open · ${WIN_LABEL[h.id]}</div>`:''}
+      </div>
+      <div class="hab-sk${hot?' fire':''}">${sk} ${hot?'🔥':'·'}</div>
+    </div>`;
+  }
+  if(st==='upcoming'){
+    return `<div class="hab-upcoming" onclick="tap('${h.id}')">
+      <div class="upcoming-box">⏳</div>
+      <div class="upcoming-body">
+        <div class="upcoming-name">${h.name}</div>
+        <div class="upcoming-time">${WIN_LABEL[h.id]||''} · opens in ${openIn(h.id)}</div>
+      </div>
+      <div class="upcoming-badge">Soon</div>
+    </div>`;
+  }
+  // missed
+  return `<div class="hab-missed">
+    <div class="missed-box">✗</div>
+    <div class="missed-name">${h.name}</div>
+    <div class="missed-badge">Missed</div>
+  </div>`;
+}
+
+function secsHTML(habs){
+  let out='';
+  for(const [s,items] of Object.entries(secGroups(habs))){
+    out+=`<div class="sec"><div class="sec-hd">
+      <span class="sec-ico">${SEC_ICON[s]||'•'}</span>
+      <span class="sec-title">${s}</span>
+      <span class="sec-time">${SEC_TIME[s]||''}</span>
+    </div>${items.map(habHTML).join('')}</div>`;
+  }
+  return out;
+}
+
+function getStudyDay(){return ld('sd',1);}
+function getTodayTopic(){
+  const sd=getStudyDay();
+  const entry=COURSE_PLAN.find(d=>d.day===sd);
+  return entry||null;
+}
+function adjStudyDay(d){
+  let sd=getStudyDay()+d;
+  if(sd<1)sd=1;
+  if(sd>COURSE_PLAN.length)sd=COURSE_PLAN.length;
+  sv('sd',sd);render();
+}
+function courseHTML(){
+  const idx=Math.min(getCIdx(),COURSES.length-1);
+  const c=COURSES[idx];const h=getCHrs();
+  const p=Math.min(Math.round(h/c.hrs*100),100);
+  const sd=getStudyDay();
+  const entry=getTodayTopic();
+  const allDone=getCIdx()>=COURSES.length-1&&p>=100;
+
+  // Overall progress across all courses
+  const totalDays=COURSE_PLAN.length;
+  const overallPct=Math.round((sd-1)/totalDays*100);
+
+  return `<div class="course-card">
+    <div class="c-top"><span class="c-eye">📖 Study plan</span><span class="c-num">Day ${sd} of ${totalDays}</span></div>
+
+    ${entry?`
+    <div style="background:var(--bg3);border-radius:var(--rsm);padding:10px 12px;margin-bottom:10px;border-left:3px solid ${COURSES[entry.course-1].color}">
+      <div style="font-size:9px;font-weight:700;color:${COURSES[entry.course-1].color};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">
+        Course ${entry.course}: ${entry.section}
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--text);line-height:1.4">${entry.topic}</div>
+    </div>`:''}
+
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">${c.name}</div>
+    <div class="prow"><div class="pbar"><div class="pfill" style="width:${p}%;background:${c.color}"></div></div><div class="ppct" style="color:${c.color}">${p}%</div></div>
+    <div class="hrow" style="margin-bottom:10px">
+      <span class="hlbl">Hours watched</span>
+      <button class="hbtn" onclick="adjHrs(-0.75)">−</button>
+      <span class="hval">${h.toFixed(1)} / ${c.hrs} hrs</span>
+      <button class="hbtn" onclick="adjHrs(0.75)">+</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;font-weight:700">Overall 5-course progress</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div class="pbar"><div class="pfill" style="width:${overallPct}%;background:var(--amber)"></div></div>
+        <div style="font-size:11px;font-weight:700;color:var(--amber);min-width:32px;text-align:right">${overallPct}%</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <button class="hbtn" onclick="adjStudyDay(-1)" style="font-size:11px;width:auto;padding:0 10px">← Prev day</button>
+        <span style="font-size:11px;color:var(--text3)">Mark day done →</span>
+        <button class="hbtn" onclick="adjStudyDay(1)" style="font-size:11px;width:auto;padding:0 10px;background:var(--gdim);border-color:rgba(34,200,122,.4);color:var(--green)">Next day →</button>
+      </div>
+    </div>
+
+    ${allDone?'<div style="background:var(--gdim);border:1px solid rgba(34,200,122,.3);border-radius:var(--rsm);padding:8px;font-size:12px;color:var(--green);margin-top:10px;text-align:center;font-weight:700">🎉 All 5 courses complete!</div>':''}
+  </div>`;
+}
+
+function statsHTML(){
+  const d=doneCount();const t=totalCount();const p=pct();
+  const wd=getWeekData();
+  const wg=Object.entries(wd).filter(([k,v])=>dow(k)!==0&&v>=70).length;
+  const missedNow=isViewingToday()?habits().filter(h=>!isDone(h.id)&&windowStatus(h.id)==='missed').length:0;
+  const col=p>=70?'var(--green)':p>=40?'var(--amber)':'var(--coral)';
+  return `<div class="stats">
+    <div class="stat"><div class="stat-v">${d}/${t}</div><div class="stat-l">Today</div></div>
+    <div class="stat"><div class="stat-v">${calcStreak()}</div><div class="stat-l">Streak</div></div>
+    <div class="stat"><div class="stat-v" style="color:${missedNow>0?'var(--coral)':'var(--text)'}">${missedNow}</div><div class="stat-l">Missed</div></div>
+    <div class="stat"><div class="stat-v" style="color:${col}">${p}%</div><div class="stat-l">Done</div></div>
+  </div>`;
+}
+
+function workToggleHTML(){
+  const d=vdow();if(d===0||d===6)return '';
+  return `<div class="wtog">
+    <div class="wtog-info">
+      <div class="wtog-t">Work shift today?</div>
+      <div class="wtog-s">${isWork()?'Active — 5 PM to 12 AM · evening is packed':'Off today — meal prep + laptop closed by 10 PM'}</div>
+    </div>
+    <label class="sw"><input type="checkbox" id="wt" ${isWork()?'checked':''} onchange="toggleWork()"><span class="sw-tr"></span><span class="sw-th"></span></label>
+  </div>`;
+}
+
+function quoteHTML(){
+  const q=QUOTES[new Date().getDay()%QUOTES.length];
+  return `<div class="quote"><div class="qt">${q.t}</div><div class="qa">— ${q.a}</div></div>`;
+}
+
+/* ─── TODAY PAGE ─── */
+function renderTodayPage(){
+  const vd=vdow();
+  const openNow=isViewingToday()?habits().filter(h=>!isDone(h.id)&&windowStatus(h.id)==='open').length:0;
+  const openBanner=openNow>0?`<div class="open-banner">🟢 ${openNow} habit${openNow>1?'s':''} open right now</div>`:'';
+  const pastNote=!isViewingToday()?`<div class="past-note">📅 Viewing ${DAYS[vd]} — past day. Habits cannot be edited.</div>`:'';
+  let body='';
+  if(vd===0){
+    body=`<div class="rest-banner"><div class="rest-ico">🌙</div><div class="rest-title">Sunday — rest day</div>
+    <div class="rest-sub">Revision done. Breakfast made.<br>The rest of the day is yours. Recharge well.</div></div>
+    ${statsHTML()}${openBanner}${secsHTML(SUN)}${courseHTML()}${quoteHTML()}
+    ${isViewingToday()?`<button class="reset-btn" onclick="resetDay()">↺ Reset today</button>`:''}`;
+  } else if(vd===6){
+    body=`${statsHTML()}${pastNote}${openBanner}
+    <div class="past-note" style="background:var(--adim);border-color:rgba(245,166,35,0.2);color:var(--amber)">📅 Saturday — temple, study, weekly revision, meal prep, laptop closed by 10 PM.</div>
+    ${secsHTML(SAT)}${courseHTML()}${quoteHTML()}
+    ${isViewingToday()?`<button class="reset-btn" onclick="resetDay()">↺ Reset today</button>`:''}`;
+  } else {
+    body=`${workToggleHTML()}${statsHTML()}${pastNote}${openBanner}
+    ${secsHTML(habits())}${courseHTML()}${quoteHTML()}
+    ${isViewingToday()?`<button class="reset-btn" onclick="resetDay()">↺ Reset today</button>`:''}`;
+  }
+  document.getElementById('pg-today').innerHTML=body;
+}
+
+/* ─── WEEKLY PAGE ─── */
+function renderWeekPage(){
+  const wd=getWeekData();const now=new Date();const sk=getStreaks();
+  let days7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(now);d.setDate(now.getDate()-i);
+    const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    days7.push({k,dow:d.getDay(),label:DAYS[d.getDay()],pct:wd[k]??null,date:d.getDate()});
+  }
+  const active=days7.filter(x=>x.dow!==0);
+  const recorded=active.filter(x=>x.pct!==null);
+  const avg=recorded.length?Math.round(recorded.reduce((a,b)=>a+b.pct,0)/recorded.length):0;
+  const good=recorded.filter(x=>x.pct>=70).length;
+  const best=recorded.length?Math.max(...recorded.map(x=>x.pct)):0;
+
+  const bars=days7.map(x=>{
+    const p=x.pct??0;const isSun=x.dow===0;
+    const col=isSun?'var(--purple)':p>=70?'var(--green)':p>=40?'var(--amber)':'var(--coral)';
+    const h=isSun?16:Math.max(2,Math.round(p/100*76));
+    return `<div class="bar-col">
+      <div class="bar-val" style="color:${isSun?'var(--purple)':col};font-size:8px">${isSun?'✦':x.pct!==null?p+'%':'—'}</div>
+      <div class="bar-wrap" style="height:76px"><div class="bar-fill" style="height:${h}px;background:${col}"></div></div>
+      <div class="bar-lbl">${x.label[0]}<br><span style="font-size:7px">${x.date}</span></div>
+    </div>`;
+  }).join('');
+
+  const habPerf=ALL_HABITS.map(h=>{
+    let checked=0,possible=0;
+    for(let i=6;i>=0;i--){
+      const d=new Date(now);d.setDate(now.getDate()-i);
+      const dw=d.getDay();if(dw===0)continue;
+      const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+      const ch=getChecked();
+      if(ch[k+'__'+h.id]!==undefined){possible++;if(ch[k+'__'+h.id])checked++;}
+    }
+    if(!possible)return null;
+    return {name:h.name,pct:Math.round(checked/possible*100)};
+  }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
+
+  const top5=habPerf.slice(0,5);
+  const bot3=[...habPerf].sort((a,b)=>a.pct-b.pct).slice(0,3);
+
+  const habList=(list,title,fixedCol)=>`<div class="an-card"><div class="an-title">${title}</div>
+    ${list.map((h,i)=>{
+      const col=fixedCol||(h.pct>=70?'var(--green)':h.pct>=40?'var(--amber)':'var(--coral)');
+      return `<div class="hr-row"><div class="hr-rank">${i+1}</div>
+        <div class="hr-name">${h.name.length>26?h.name.slice(0,24)+'…':h.name}</div>
+        <div class="hr-bar-wrap"><div class="hr-bar-fill" style="width:${h.pct}%;background:${col}"></div></div>
+        <div class="hr-pct" style="color:${col}">${h.pct}%</div>
+      </div>`;
+    }).join('')}</div>`;
+
+  document.getElementById('pg-week').innerHTML=`
+    <div class="big-stats">
+      <div class="bstat"><div class="bstat-v" style="color:var(--green)">${avg}%</div><div class="bstat-l">Weekly avg</div></div>
+      <div class="bstat"><div class="bstat-v" style="color:var(--amber)">${good}/6</div><div class="bstat-l">Days ≥70%</div></div>
+      <div class="bstat"><div class="bstat-v" style="color:var(--purple)">${best}%</div><div class="bstat-l">Best day</div></div>
+    </div>
+    <div class="an-card"><div class="an-title">📊 Daily completion — this week</div>
+      <div class="bar-chart">${bars}</div>
+      <div class="leg-row">
+        <div class="leg"><div class="legdot" style="background:var(--green)"></div>≥70%</div>
+        <div class="leg"><div class="legdot" style="background:var(--amber)"></div>40–69%</div>
+        <div class="leg"><div class="legdot" style="background:var(--coral)"></div>Under 40%</div>
+        <div class="leg"><div class="legdot" style="background:var(--purple)"></div>Sunday</div>
+      </div>
+    </div>
+    ${top5.length?habList(top5,'🏆 Top habits this week',''):''}
+    ${bot3.length?habList(bot3,'⚠️ Needs attention','var(--coral)'):''}
+    <div class="an-card"><div class="an-title">📖 Course progress</div>
+      ${COURSES.map((c,i)=>{
+        const done=i<getCIdx();const cur=i===getCIdx();
+        const p=done?100:cur?Math.min(Math.round(getCHrs()/c.hrs*100),100):0;
+        return `<div class="ac-row"><div class="ac-num">${i+1}</div>
+          <div class="ac-body"><div class="ac-name">${c.name}</div><div class="ac-pbar"><div class="ac-pfill" style="width:${p}%;background:${c.color}"></div></div></div>
+          <div class="ac-pct" style="color:${c.color}">${p}%</div>
+          ${done?'<span class="tag tag-g">✓</span>':cur?'<span class="tag tag-a">Now</span>':'<span class="tag" style="background:var(--bg3);color:var(--text3)">Next</span>'}
+        </div>`;
+      }).join('')}
+    </div>
+    ${renderStudyPlanTable()}
+    `;
+}
+
+function renderStudyPlanTable(){
+  const sd=getStudyDay();
+  const start=Math.max(1,sd-2);
+  const end=Math.min(COURSE_PLAN.length,sd+10);
+  const rows=COURSE_PLAN.filter(d=>d.day>=start&&d.day<=end).map(d=>{
+    const c=COURSES[d.course-1];
+    const isPast=d.day<sd;const isCur=d.day===sd;
+    const bg=isCur?'background:rgba(34,200,122,0.08);border-left:3px solid '+c.color+';':'border-left:3px solid '+(isPast?'rgba(255,255,255,0.05)':'var(--border)')+';';
+    const nc=isCur?'color:var(--green);font-weight:700':isPast?'color:var(--text3)':'color:var(--text2)';
+    return '<div style="padding:8px 10px;border-bottom:1px solid var(--border);'+bg+'display:flex;gap:10px;align-items:flex-start">'+
+      '<div style="font-size:10px;font-weight:700;min-width:36px;'+nc+'">'+(isPast?'\u2713':isCur?'\u25BA':'')+' D'+d.day+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:9px;font-weight:700;color:'+c.color+';text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2px">C'+d.course+': '+d.section+'</div>'+
+        '<div style="font-size:11px;color:'+(isCur?'var(--text)':isPast?'var(--text3)':'var(--text2)')+';line-height:1.3">'+d.topic+'</div>'+
+      '</div></div>';
+  }).join('');
+  return '<div class="an-card"><div class="an-title">\uD83D\uDCC5 Study plan \u2014 upcoming lessons</div>'+
+    '<div style="border-radius:var(--rsm);overflow:hidden;border:1px solid var(--border)">'+rows+'</div>'+
+    '<div style="font-size:10px;color:var(--text3);margin-top:8px;text-align:center">\u25BA = today \u00B7 \u2713 = done \u00B7 87 total study days across 5 courses</div>'+
+  '</div>';
+}
+
+/* ─── MONTHLY PAGE ─── */
+function renderMonthPage(){
+  const now=new Date();
+  if(!viewMonth)viewMonth={y:now.getFullYear(),m:now.getMonth()};
+  const {y,m}=viewMonth;const wd=getWeekData();
+  const isNow=y===now.getFullYear()&&m===now.getMonth();
+  const firstDay=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  let pcts=[];
+  for(let day=1;day<=daysInMonth;day++){
+    const d=new Date(y,m,day);if(d.getDay()===0)continue;
+    const k=y+'-'+(m+1)+'-'+day;
+    if(wd[k]!==undefined)pcts.push(wd[k]);
+  }
+  const avg=pcts.length?Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length):0;
+  const good=pcts.filter(p=>p>=70).length;
+  const best=pcts.length?Math.max(...pcts):0;
+  const cons=pcts.length?Math.round(good/pcts.length*100):0;
+  const consCol=cons>=70?'var(--green)':cons>=40?'var(--amber)':'var(--coral)';
+
+  const dlbls=['S','M','T','W','T','F','S'].map(d=>`<div class="hm-day-lbl">${d}</div>`).join('');
+  let cells='';
+  for(let i=0;i<firstDay;i++)cells+=`<div class="hm-cell hm-future"></div>`;
+  for(let day=1;day<=daysInMonth;day++){
+    const d=new Date(y,m,day);const dw=d.getDay();
+    const k=y+'-'+(m+1)+'-'+day;const future=d>now;const isSun=dw===0;
+    const p=wd[k];let cls='hm-cell ',pt='';
+    if(future)cls+='hm-future';
+    else if(isSun){cls+='hm-rest';pt='✦';}
+    else if(p===undefined)cls+='hm-0';
+    else if(p>=80){cls+='hm-3';pt=p+'%';}
+    else if(p>=60){cls+='hm-2';pt=p+'%';}
+    else if(p>=30){cls+='hm-1';pt=p+'%';}
+    else{cls+='hm-0';pt=p>0?p+'%':'';}
+    cells+=`<div class="${cls}" title="${DAYS[dw]} ${day} — ${isSun?'Rest':p!==undefined?p+'%':'Not tracked'}">
+      <span class="hm-d">${day}</span><span class="hm-p">${pt}</span>
+    </div>`;
+  }
+
+  const dayBars=[];
+  for(let day=1;day<=daysInMonth;day++){
+    const d=new Date(y,m,day);if(d.getDay()===0)continue;
+    const k=y+'-'+(m+1)+'-'+day;
+    dayBars.push({day,p:wd[k]??null,future:d>now});
+  }
+  const barsHTML=dayBars.map(({day,p,future})=>{
+    const hp=p??0;const col=future?'var(--border2)':hp>=70?'var(--green)':hp>=40?'var(--amber)':'var(--coral)';
+    const h=future?3:Math.max(2,Math.round(hp/100*65));
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;min-width:0">
+      <div style="width:100%;height:65px;background:var(--bg3);border-radius:3px;display:flex;align-items:flex-end;overflow:hidden">
+        <div style="width:100%;height:${h}px;background:${col};border-radius:2px"></div>
+      </div>
+      <div style="font-size:7px;color:var(--text3);margin-top:2px">${day%5===0?day:''}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('pg-month').innerHTML=`
+    <div class="hm-month-nav">
+      <button class="hm-nav-btn" onclick="changeMonth(-1)">‹</button>
+      <span class="hm-month-lbl">${MONTHS_L[m]} ${y}</span>
+      <button class="hm-nav-btn" onclick="changeMonth(1)" ${isNow?'disabled style="opacity:.3"':''}>›</button>
+    </div>
+    <div class="big-stats">
+      <div class="bstat"><div class="bstat-v" style="color:var(--green)">${avg}%</div><div class="bstat-l">Monthly avg</div></div>
+      <div class="bstat"><div class="bstat-v" style="color:${consCol}">${cons}%</div><div class="bstat-l">Consistency</div></div>
+      <div class="bstat"><div class="bstat-v" style="color:var(--amber)">${good}</div><div class="bstat-l">Days ≥70%</div></div>
+    </div>
+    <div class="an-card"><div class="an-title">🗓 Heatmap — ${MONTHS_S[m]} ${y}</div>
+      <div class="hm-day-labels">${dlbls}</div>
+      <div class="heatmap">${cells}</div>
+      <div class="leg-row">
+        <div class="leg"><div class="legdot" style="background:rgba(34,200,122,0.45)"></div>80%+</div>
+        <div class="leg"><div class="legdot" style="background:rgba(34,200,122,0.25)"></div>60–79%</div>
+        <div class="leg"><div class="legdot" style="background:rgba(34,200,122,0.12)"></div>30–59%</div>
+        <div class="leg"><div class="legdot" style="background:var(--bg3);border:1px solid var(--border)"></div>&lt;30%</div>
+        <div class="leg"><div class="legdot" style="background:var(--pdim)"></div>Sunday</div>
+      </div>
+    </div>
+    <div class="an-card"><div class="an-title">📈 Daily bars — ${MONTHS_S[m]} ${y}</div>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:70px">${barsHTML}</div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px"><span>1</span><span>${daysInMonth}</span></div>
+    </div>
+    <div class="an-card"><div class="an-title">📊 Month summary</div>
+      ${[['Days tracked',pcts.length+' days','var(--text)'],['Days ≥70%',good+' days','var(--green)'],['Best day',best+'%','var(--amber)'],['Consistency',cons+'% · '+(cons>=70?'On track':cons>=40?'Building':'Needs work'),consCol]]
+        .map(([l,v,c],i,a)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;${i<a.length-1?'border-bottom:1px solid var(--border)':''}">
+          <span style="font-size:13px;color:var(--text2)">${l}</span>
+          <span style="font-size:13px;font-weight:700;color:${c}">${v}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function changeMonth(d){
+  if(!viewMonth)viewMonth={y:new Date().getFullYear(),m:new Date().getMonth()};
+  viewMonth.m+=d;
+  if(viewMonth.m<0){viewMonth.m=11;viewMonth.y--;}
+  if(viewMonth.m>11){viewMonth.m=0;viewMonth.y++;}
+  renderMonthPage();
+}
+
+/* ─── HEADER ─── */
+function renderHeader(){
+  const now=new Date();const d=now.getDay();
+  document.getElementById('hdate').textContent=DAYS[d]+', '+MONTHS_S[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear();
+  const h=now.getHours();
+  document.getElementById('hsub').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+' — stay disciplined.';
+  const b=document.getElementById('hbadge');
+  b.textContent=DAYS[d];
+  b.style.cssText=d===0?'background:var(--pdim);color:var(--purple);border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700':
+    d===6?'background:var(--adim);color:var(--amber);border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700':
+    'background:var(--gdim);color:var(--green);border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700';
+  const dt=document.getElementById('day-type');
+  if(d>=1&&d<=5) dt.textContent=isWork()?'⚡ Work day':'🌿 Non-work day';
+  else dt.textContent='';
+  if(currentPage!=='today')return;
+  const nav=document.getElementById('daynav');nav.innerHTML='';
+  for(let i=6;i>=0;i--){
+    const dd=new Date(now);dd.setDate(now.getDate()-i);
+    const k=dd.getFullYear()+'-'+(dd.getMonth()+1)+'-'+dd.getDate();
+    const dw=dd.getDay();const isV=view()===k;
+    const btn=document.createElement('button');
+    btn.className='dnbtn'+(dw===0?' rest-btn':'')+(isV?' active':'');
+    btn.textContent=DAYS[dw];
+    btn.onclick=()=>{viewDay=k;render();};
+    nav.appendChild(btn);
+  }
+}
+
+/* ─── CLOCK ─── */
+function updateClock(){
+  const n=new Date();
+  const el=document.getElementById('lclock');
+  if(el)el.textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+}
+
+/* ─── MAIN RENDER ─── */
+function render(){
+  renderHeader();saveWD();
+  if(currentPage==='today')renderTodayPage();
+  else if(currentPage==='week')renderWeekPage();
+  else if(currentPage==='month')renderMonthPage();
+}
+
+updateClock();
+setInterval(updateClock,1000);
+setInterval(()=>{if(currentPage==='today'){saveWD();renderTodayPage();}},60000);
+render();
+</script>
+</body>
+</html>
